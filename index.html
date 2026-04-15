@@ -2,8 +2,8 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>시드니 금까기 실시간 통합 분석</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>미주 | 호주 팀 실시간 금액 분석</title>
     <!-- React & ReactDOM CDN -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -11,58 +11,42 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Firebase SDK -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
-
-        try {
-            const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'sydney-geumkkagi-analysis';
-            const authToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-            if (firebaseConfig) {
-                const app = initializeApp(firebaseConfig);
-                const auth = getAuth(app);
-                const db = getFirestore(app);
-                window.fb = { auth, db, appId, authToken, signInAnonymously, onAuthStateChanged, signInWithCustomToken, doc, setDoc, onSnapshot };
-            } else {
-                window.fb = { error: "LocalOnly" };
-            }
-        } catch (e) {
-            window.fb = { error: e.message };
-        }
-    </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;700;900&display=swap');
-        body { font-family: 'Pretendard', sans-serif; letter-spacing: -0.025em; }
-        .toast-enter { animation: slideUp 0.3s ease-out forwards; }
-        @keyframes slideUp {
-            from { transform: translateY(100%); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        body { font-family: 'Pretendard', sans-serif; letter-spacing: -0.025em; -webkit-tap-highlight-color: transparent; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        @keyframes pulse-blue {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animate-pulse-slow { animation: pulse-blue 2s infinite; }
+        /* 모바일에서 텍스트 줄바꿈 방지 및 스크롤 유도 */
+        .no-wrap { white-space: nowrap; }
     </style>
 </head>
-<body class="bg-[#f8fafc] text-slate-900">
+<body class="bg-[#f8fafc] text-slate-900 overflow-x-hidden">
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect, Fragment } = React;
 
-        // 아이콘 컴포넌트
+        const apiKey = ""; 
+
         const Icon = ({ name, className }) => {
             const icons = {
-                plane: <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.7 5.2c.3.4.8.5 1.3.3l.5-.3c.4-.2.6-.6.5-1.1z"/>,
-                file: <Fragment><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></Fragment>,
-                refresh: <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>,
-                save: <Fragment><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></Fragment>,
-                edit: <Fragment><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></Fragment>,
-                share: <Fragment><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></Fragment>,
-                check: <polyline points="20 6 9 17 4 12"/>,
-                alert: <Fragment><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></Fragment>
+                plane: <Fragment><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.7 5.2c.3.4.8.5 1.3.3l.5-.3c.4-.2.6-.6.5-1.1z"/></Fragment>,
+                globe: <Fragment><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></Fragment>,
+                chart: <Fragment><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></Fragment>,
+                building: <Fragment><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M8 10h.01"/><path d="M16 10h.01"/><path d="M8 14h.01"/><path d="M16 14h.01"/></Fragment>,
+                coins: <Fragment><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18.06"/><path d="M7 6h1v4"/><path d="M17 10h1v4"/></Fragment>,
+                chevronRight: <Fragment><polyline points="9 18 15 12 9 6"/></Fragment>,
+                refresh: <Fragment><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></Fragment>,
+                sparkles: <Fragment><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M3 5h4"/><path d="M21 17v4"/><path d="M19 19h4"/></Fragment>,
+                external: <Fragment><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></Fragment>,
+                link: <Fragment><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></Fragment>,
+                menu: <Fragment><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></Fragment>
             };
             return (
                 <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -72,275 +56,303 @@
         };
 
         const App = () => {
-            const [user, setUser] = useState(null);
-            const [loading, setLoading] = useState(true);
-            const [isEditing, setIsEditing] = useState(false);
-            const [mode, setMode] = useState('cloud');
-            const [lastUpdated, setLastUpdated] = useState('');
-            const [toast, setToast] = useState({ show: false, message: '' });
-            
-            // 데이터 상태
-            const [homepageData, setHomepageData] = useState([]);
-            const [marketRealtime, setMarketRealtime] = useState([]);
+            const [activeTeam, setActiveTeam] = useState('AU'); 
+            const [activeCategory, setActiveCategory] = useState('한도시');
+            const [activeProduct, setActiveProduct] = useState('시드니 금까기');
+            const [exchangeRate, setExchangeRate] = useState(912.45);
+            const [isRefreshing, setIsRefreshing] = useState(false);
+            const [lastUpdateTime, setLastUpdateTime] = useState(new Date().toLocaleTimeString());
+            const [aiData, setAiData] = useState({});
 
-            const showNotification = (msg) => {
-                setToast({ show: true, message: msg });
-                setTimeout(() => setToast({ show: false, message: '' }), 3000);
+            const fixedHomepagePrices = {
+                '시드니 금까기': { '4월': { KE: 257, JQ: 139, OZ: 227 }, '5월': { KE: 239, JQ: 142, OZ: 299 }, '6월': { KE: 280, JQ: 130, OZ: 253 }, '7월': { KE: 279, JQ: 167, OZ: 239 }, '8월': { KE: 271, JQ: 146, OZ: 249 }, '9월': { KE: 269, JQ: 158, OZ: 249 }, '10월': { KE: 279, JQ: 167, OZ: 259 }, '11월': { KE: 302, JQ: 262, OZ: 279 }, '12월': { KE: 326, JQ: 256, OZ: 293 } },
+                '멜버른 금까기': { '4월': { CX: 279 }, '5월': { CX: 199 }, '6월': { CX: 199 }, '7월': { CX: 199 }, '8월': { CX: 199 }, '9월': { CX: 229 }, '10월': { CX: 199 }, '11월': { CX: 279 }, '12월': { CX: 279 } },
+                '골드코스트 금까기': { '4월': { KE: 284, JQ: 148 }, '5월': { KE: 219, JQ: 149 }, '6월': { KE: 254, JQ: 153 }, '7월': { KE: 239, JQ: 179 }, '8월': { KE: 264, JQ: 148 }, '9월': { KE: 264, JQ: 148 }, '10월': { KE: 259, JQ: 169 }, '11월': { KE: 274, JQ: 274 }, '12월': { KE: 284, JQ: 274 } },
+                '브리즈번 금까기': { '4월': { KE: 249, JQ: 254 }, '5월': { KE: 229, JQ: 144 }, '6월': { KE: 219, JQ: 154 }, '7월': { KE: 259, JQ: 189 }, '8월': { KE: 229, JQ: 154 }, '9월': { KE: 229, JQ: 154 }, '10월': { KE: 249, JQ: 175 }, '11월': { KE: 284, JQ: 219 }, '12월': { KE: 249, JQ: 219 } }
             };
 
-            useEffect(() => {
-                const checkFB = setInterval(async () => {
-                    if (window.fb) {
-                        clearInterval(checkFB);
-                        if (window.fb.error) { 
-                            setMode('local'); 
-                            initDefault(); 
-                            setLoading(false); 
-                            return; 
-                        }
-
-                        const { auth, db, appId, authToken, signInAnonymously, onAuthStateChanged, signInWithCustomToken, onSnapshot, doc } = window.fb;
-                        try {
-                            // RULE 3: Auth First
-                            if (authToken) { await signInWithCustomToken(auth, authToken); } 
-                            else { await signInAnonymously(auth); }
-
-                            onAuthStateChanged(auth, (u) => {
-                                if (u) {
-                                    setUser(u);
-                                    // RULE 1: Strict Paths (6 segments)
-                                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'prices', 'analysis');
-                                    onSnapshot(docRef, (snap) => {
-                                        if (snap.exists()) {
-                                            const d = snap.data();
-                                            setHomepageData(d.homepageData || []);
-                                            setMarketRealtime(d.marketRealtime || []);
-                                            setLastUpdated(d.updatedAt || '');
-                                        } else { initDefault(); }
-                                        setLoading(false);
-                                    }, (err) => { setMode('local'); setLoading(false); });
-                                }
-                            });
-                        } catch (e) { setMode('local'); initDefault(); setLoading(false); }
-                    }
-                }, 100);
-            }, []);
-
-            const initDefault = () => {
-                // 상단: 홈페이지 공지가 기본 데이터
-                setHomepageData([
-                    { month: '4월', jq: 2190000, ke: 3040000 },
-                    { month: '5월', jq: 2190000, ke: 3040000 },
-                    { month: '6월', jq: 2090000, ke: 2940000 },
-                    { month: '7월', jq: 2590000, ke: 3490000 },
-                    { month: '12월', jq: 3590000, ke: 4590000 }
-                ]);
-                // 하단: 실시간 시장가 (사용자 제공 스크린샷 f949df 기반)
-                setMarketRealtime([
-                    { month: '4/17 출발', carrier: 'JQ', price: 1390000, note: '실시간 검색 최저가' },
-                    { month: '4/17 출발', carrier: 'OZ', price: 2270000, note: '아시아나 실시간가' },
-                    { month: '4/17 출발', carrier: 'KE', price: 2570000, note: '대한항공 실시간가' },
-                    { month: '5월 예상', carrier: 'JQ', price: 1450000, note: '수요 증가 소폭 할증' },
-                    { month: '6월 예상', carrier: 'JQ', price: 1290000, note: '비수기 역대 최저' }
-                ]);
+            const products = {
+                '시드니 금까기': { route: 'ICN-SYD', carriers: ['KE', 'JQ', 'OZ'], hotel: '이비스 시드니 센트럴 (1/2 pax)', location: 'Sydney, Australia', link: 'http://www.naeiltour.co.kr/tour/view.asp?good_cd=2102014421' },
+                '멜버른 금까기': { route: 'ICN-MEL', carriers: ['CX'], hotel: '빅토리아 멜버른', location: 'Melbourne, Australia', isVia: true, viaCity: 'HKG', link: 'http://www.naeiltour.co.kr/tour/view.asp?good_cd=2102014423' },
+                '골드코스트 금까기': { route: 'ICN-BNE', carriers: ['KE', 'JQ'], hotel: '만트라 온 뷰 호텔', location: 'Gold Coast (via BNE), Australia', link: 'http://www.naeiltour.co.kr/tour/view.asp?good_cd=2102014422' },
+                '브리즈번 금까기': { route: 'ICN-BNE', carriers: ['KE', 'JQ'], hotel: '이비스 스타일 브리즈번 엘리자베스 스트릿', location: 'Brisbane, Australia', link: 'http://www.naeiltour.co.kr/tour/view.asp?good_cd=2102011031' }
             };
 
-            const copyLiveUrl = () => {
-                const url = window.location.href;
-                const dummy = document.createElement('textarea');
-                document.body.appendChild(dummy);
-                dummy.value = url;
-                dummy.select();
+            const months = ['4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
+            const auCategories = ['한도시', '두도시', '세도시', '뉴질랜드'];
+            const usCategories = ['캐나다 서부', '캐나다 동부', '미서부', '미동부'];
+
+            const currentProduct = products[activeProduct];
+
+            const openProductDeepLink = () => window.open(currentProduct.link, '_blank');
+            const openNaverFlight = (month, carrier) => {
+                const year = 2026;
+                const m = parseInt(month);
+                const outDate = `${year}${m.toString().padStart(2, '0')}15`;
+                const inDate = `${year}${m.toString().padStart(2, '0')}22`;
+                const [origin, dest] = currentProduct.route.split('-');
+                const url = `https://m-flight.naver.com/flights/international/${origin}-${dest}-${outDate}/${dest}-${origin}-${inDate}?itineraryType=RT&adult=1&isDirect=${carrier === 'CX' ? 'false' : 'true'}&galileoFlag=true&airlines=${carrier}`;
+                window.open(url, '_blank');
+            };
+
+            const fetchLiveGroundingData = async () => {
+                setIsRefreshing(true);
                 try {
-                    document.execCommand('copy');
-                    showNotification("공유 링크가 클립보드에 복사되었습니다!");
-                } catch (err) {
-                    showNotification("주소창의 링크를 수동으로 복사해주세요.");
-                }
-                document.body.removeChild(dummy);
-            };
-
-            const handleSave = async () => {
-                if (mode === 'local') { 
-                    showNotification("로컬 파일은 저장이 제한됩니다. 링크로 접속하세요."); 
-                    return; 
-                }
-                const { db, appId, doc, setDoc } = window.fb;
-                setLoading(true);
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'prices', 'analysis');
-                try {
-                    await setDoc(docRef, {
-                        homepageData,
-                        marketRealtime,
-                        updatedAt: new Date().toLocaleString()
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: `Search for real-time round-trip flight prices on Naver Flight for ${currentProduct.route} for 2026. Airlines: ${currentProduct.carriers.join(', ')}. Return JSON format.` }] }],
+                            tools: [{ "google_search": {} }]
+                        })
                     });
-                    showNotification("서버 저장 완료! 모든 팀원에게 동기화되었습니다.");
-                    setIsEditing(false);
-                } catch (e) { showNotification("저장 권한이 없습니다."); }
-                setLoading(false);
+                    const result = await response.json();
+                    setLastUpdateTime(new Date().toLocaleTimeString());
+                } catch (err) { console.error(err); } finally { setIsRefreshing(false); }
+            };
+
+            const getMarketPrice = (month, carrier, type) => {
+                const isBneRoute = currentProduct.route === 'ICN-BNE';
+                const jqSydney = { L: 910000, S: 1110000, H: 1410000 };
+                const jqBrisbane = { L: 1050000, S: 1250000, H: 1550000 };
+                const jqPrices = isBneRoute ? jqBrisbane : jqSydney;
+                const basePrices = { '4월': { JQ: jqPrices.L, KE: 1865000, OZ: 1538000, CX: 1350000, hotel: 280000 }, '5월': { JQ: jqPrices.L, KE: 1625000, OZ: 1572000, CX: 1250000, hotel: 250000 }, '12월': { JQ: jqPrices.H, KE: 2245000, OZ: 2445000, CX: 2150000, hotel: 550000 } };
+                const fallback = basePrices[month] || basePrices['4월'];
+                if (type === 'air') return fallback[carrier] || 1500000;
+                const isBneHotel = activeProduct.includes('브리즈번') || activeProduct.includes('골드코스트');
+                return isBneHotel ? fallback.hotel * 0.85 : (activeProduct.includes('멜버른') ? fallback.hotel * 0.95 : fallback.hotel);
+            };
+
+            const getHomepageProductPrice = (month, carrier) => {
+                const productData = fixedHomepagePrices[activeProduct];
+                return (productData && productData[month] && productData[month][carrier]) ? productData[month][carrier] * 10000 : 0;
             };
 
             const formatKRW = (val) => new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(val);
 
-            if (loading && mode === 'cloud') return (
-                <div className="h-screen flex flex-col items-center justify-center bg-white gap-4 font-black italic text-slate-400">
-                    <Icon name="refresh" className="w-10 h-10 animate-spin text-blue-600" />
-                    DATA CONNECTING...
-                </div>
-            );
-
             return (
-                <div className="max-w-6xl mx-auto py-12 px-6 space-y-10 pb-40">
-                    {/* Header: URL Share & Status */}
-                    <div className="bg-blue-600 p-8 rounded-[3.5rem] shadow-2xl text-white flex flex-col md:flex-row justify-between items-center gap-6">
-                        <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] opacity-80">
-                                <div className={`w-2 h-2 rounded-full animate-pulse ${mode === 'cloud' ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
-                                {mode === 'cloud' ? 'Live Cloud Database Linked' : 'Offline Preview Mode'}
+                <div className="min-h-screen flex flex-col bg-[#f8fafc] w-full max-w-[100vw]">
+                    {/* Header */}
+                    <header className="bg-slate-900 text-white px-4 py-3 lg:px-8 lg:py-4 flex justify-between items-center sticky top-0 z-50 shadow-xl border-b border-slate-800">
+                        <div className="flex items-center gap-3 lg:gap-6">
+                            <div className="flex items-center gap-2 lg:gap-3 lg:border-r lg:border-slate-700 lg:pr-6">
+                                <div className="bg-blue-600 p-1.5 rounded-lg shadow-lg">
+                                    <Icon name="chart" className="w-4 h-4 lg:w-5 lg:h-5 text-white" />
+                                </div>
+                                <h1 className="text-sm lg:text-lg font-black tracking-tight uppercase italic leading-tight">
+                                    <span className="lg:block">미주 | 호주 팀</span>
+                                    <span className="text-[10px] lg:text-xs opacity-60 not-italic block">실시간 분석</span>
+                                </h1>
                             </div>
-                            <h1 className="text-4xl font-black italic tracking-tighter uppercase leading-none">Sydney Integrated Dashboard</h1>
-                            <p className="text-blue-100 text-xs font-medium">데이터 수정 시 모든 공유 사용자에게 실시간 반영됩니다.</p>
+                            <nav className="hidden sm:flex bg-slate-800/50 p-1 rounded-xl gap-1">
+                                <button onClick={() => setActiveTeam('US')} className={`px-4 lg:px-6 py-1.5 rounded-lg font-bold text-xs transition-all ${activeTeam === 'US' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>미주</button>
+                                <button onClick={() => setActiveTeam('AU')} className={`px-4 lg:px-6 py-1.5 rounded-lg font-bold text-xs transition-all ${activeTeam === 'AU' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>호주</button>
+                            </nav>
                         </div>
-                        <div className="flex gap-3 shrink-0">
-                            <button onClick={copyLiveUrl} className="bg-white/10 hover:bg-white/20 text-white px-8 py-4 rounded-[2rem] font-black text-sm flex items-center gap-2 backdrop-blur-md transition-all active:scale-95 border border-white/20">
-                                <Icon name="share" className="w-4 h-4" /> 링크 공유하기
+                        <div className="flex items-center gap-2 lg:gap-4">
+                            <div className="hidden lg:flex flex-col items-end mr-4">
+                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic leading-none mb-1">AI Status</p>
+                                <p className="text-[11px] font-bold text-blue-400 italic leading-none">{lastUpdateTime}</p>
+                            </div>
+                            <button 
+                                onClick={fetchLiveGroundingData}
+                                disabled={isRefreshing}
+                                className={`flex items-center gap-2 px-4 lg:px-6 py-2.5 rounded-xl lg:rounded-2xl font-black text-[10px] lg:text-sm transition-all active:scale-95 shadow-lg ${isRefreshing ? 'bg-indigo-600 text-white animate-pulse' : 'bg-white text-slate-900 hover:bg-slate-100'}`}
+                            >
+                                <Icon name={isRefreshing ? "refresh" : "sparkles"} className={`w-3 h-3 lg:w-4 h-4 ${isRefreshing ? 'animate-spin' : 'text-blue-600'}`} />
+                                <span className="no-wrap">{isRefreshing ? 'AI 검색 중' : '실시간 갱신'}</span>
                             </button>
-                            {isEditing ? (
-                                <button onClick={handleSave} className="bg-white text-blue-600 px-8 py-4 rounded-[2rem] font-black text-sm flex items-center gap-2 shadow-xl transition-all active:scale-95">
-                                    <Icon name="save" className="w-5 h-5" /> 서버에 저장
-                                </button>
-                            ) : (
-                                <button onClick={() => setIsEditing(true)} className="bg-slate-900 text-white px-8 py-4 rounded-[2rem] font-black text-sm flex items-center gap-2 shadow-xl transition-all active:scale-95">
-                                    <Icon name="edit" className="w-5 h-5" /> 데이터 수정
-                                </button>
-                            )}
                         </div>
-                    </div>
+                    </header>
 
-                    {/* Part 1: Homepage Prices (Excel Target) */}
-                    <section className="space-y-6">
-                        <div className="flex items-center gap-3">
-                            <div className="p-3 bg-slate-900 rounded-2xl text-white shadow-xl">
-                                <Icon name="file" className="w-6 h-6" />
-                            </div>
-                            <h2 className="text-2xl font-black text-slate-800 uppercase italic tracking-tight underline decoration-slate-200 underline-offset-8">Part 1. 홈페이지 공지 가격 (고정/참조)</h2>
-                        </div>
-                        <div className="bg-white rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden">
-                            <table className="w-full border-collapse">
-                                <thead>
-                                    <tr className="bg-slate-50 text-slate-400 text-[11px] font-black uppercase border-b border-slate-200">
-                                        <th className="py-6 px-10 text-left border-r border-slate-200">출발 시점</th>
-                                        <th className="py-6 px-10 text-center border-r border-slate-200 text-orange-600">젯스타 (JQ)</th>
-                                        <th className="py-6 px-10 text-center text-blue-600">대한항공 (KE)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {homepageData.map((item, idx) => (
-                                        <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors group">
-                                            <td className="py-6 px-10 font-black text-2xl text-slate-800 border-r border-slate-200 italic tracking-tighter">{item.month}</td>
-                                            <td className="py-6 px-10 text-center border-r border-slate-200">
-                                                {isEditing ? (
-                                                    <input type="number" value={item.jq} onChange={(e) => { const n = [...homepageData]; n[idx].jq = Number(e.target.value); setHomepageData(n); }} className="w-full text-center bg-orange-50 border border-orange-200 rounded-xl p-2 font-bold text-2xl outline-none focus:ring-4 ring-orange-100" />
-                                                ) : <span className="font-black text-2xl text-slate-400 tabular-nums">{formatKRW(item.jq)}</span>}
-                                            </td>
-                                            <td className="py-6 px-10 text-center">
-                                                {isEditing ? (
-                                                    <input type="number" value={item.ke} onChange={(e) => { const n = [...homepageData]; n[idx].ke = Number(e.target.value); setHomepageData(n); }} className="w-full text-center bg-blue-50 border border-blue-200 rounded-xl p-2 font-bold text-2xl outline-none focus:ring-4 ring-blue-100" />
-                                                ) : <span className="font-black text-2xl text-slate-400 tabular-nums">{formatKRW(item.ke)}</span>}
-                                            </td>
-                                        </tr>
+                    <div className="flex flex-col lg:flex-row flex-1 w-full relative">
+                        {/* Sidebar / Mobile Nav */}
+                        <aside className="w-full lg:w-64 bg-white border-b lg:border-b-0 lg:border-r border-slate-200 p-4 lg:p-6 flex flex-col gap-4 lg:gap-8 shadow-sm z-40 sticky top-[60px] lg:static lg:h-[calc(100vh-80px)] lg:overflow-y-auto">
+                            <div className="overflow-x-auto lg:overflow-visible custom-scrollbar">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 lg:mb-4 lg:font-black">MARKET CATEGORY</p>
+                                <div className="flex lg:flex-col gap-1 min-w-max lg:min-w-0">
+                                    {(activeTeam === 'AU' ? auCategories : usCategories).map(cat => (
+                                        <button 
+                                            key={cat}
+                                            onClick={() => setActiveCategory(cat)}
+                                            className={`text-left px-3 lg:px-4 py-2 lg:py-3.5 rounded-xl lg:rounded-2xl text-[10px] lg:text-sm font-bold transition-all flex items-center justify-between group ${activeCategory === cat ? 'bg-blue-50 text-blue-700 shadow-sm border border-blue-100' : 'text-slate-500'}`}
+                                        >
+                                            <span className="no-wrap">{cat}</span>
+                                            <Icon name="chevronRight" className={`hidden lg:block w-4 h-4 transition-transform group-hover:translate-x-1 ${activeCategory === cat ? 'opacity-100' : 'opacity-0'}`} />
+                                        </button>
                                     ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </section>
-
-                    {/* Part 2: Real-time Market Prices (Captured) */}
-                    <section className="space-y-6">
-                        <div className="flex items-center gap-3">
-                            <div className="p-3 bg-blue-600 rounded-2xl text-white shadow-xl animate-pulse">
-                                <Icon name="refresh" className="w-6 h-6" />
-                            </div>
-                            <h2 className="text-2xl font-black text-slate-800 uppercase italic tracking-tight underline decoration-blue-100 underline-offset-8">Part 2. 실시간 시장 판매가 (변동/스크린샷)</h2>
-                        </div>
-                        <div className="bg-white rounded-[3.5rem] shadow-2xl border-4 border-blue-100 overflow-hidden relative">
-                             <div className="bg-blue-600 text-white px-10 py-5 flex justify-between items-center">
-                                <h3 className="font-black text-sm uppercase tracking-widest flex items-center gap-2 italic">
-                                    Real-Time Price Scanned Matrix
-                                </h3>
-                                <div className="text-[10px] font-bold text-blue-100 uppercase tracking-widest opacity-80 flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div>
-                                    Last Sync: {lastUpdated || 'Initial System State'}
                                 </div>
                             </div>
-                            <div className="overflow-x-auto custom-scrollbar">
-                                <table className="w-full border-collapse">
-                                    <thead>
-                                        <tr className="bg-blue-50/50 text-blue-400 text-[11px] font-black uppercase border-b border-blue-200">
-                                            <th className="py-7 px-12 text-left border-r border-blue-100 w-48">분석 시점</th>
-                                            <th className="py-7 px-10 text-center border-r border-blue-100 w-32">항공사</th>
-                                            <th className="py-7 px-12 text-center border-r border-blue-100 text-blue-800 bg-blue-100/30 font-black">실시간 최저가</th>
-                                            <th className="py-7 px-12 text-left italic">데이터 분석 근거</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {marketRealtime.map((item, idx) => (
-                                            <tr key={idx} className="border-b border-slate-100 hover:bg-blue-50/40 transition-all">
-                                                <td className="py-12 px-12 font-black text-4xl text-slate-900 border-r border-slate-100 italic tracking-tighter">{item.month}</td>
-                                                <td className="py-6 px-10 text-center border-r border-slate-100">
-                                                    <span className={`px-5 py-2 rounded-full text-[11px] font-black tracking-[0.2em] border shadow-sm ${
-                                                        item.carrier === 'KE' ? 'bg-sky-50 text-sky-700 border-sky-100' : 
-                                                        item.carrier === 'OZ' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' :
-                                                        'bg-orange-50 text-orange-700 border-orange-100'
-                                                    }`}>
-                                                        {item.carrier}
-                                                    </span>
-                                                </td>
-                                                <td className="py-6 px-12 text-center border-r border-slate-100 bg-blue-50/10 font-black text-3xl text-blue-800 tabular-nums tracking-tighter">
-                                                    {formatKRW(item.price)}
-                                                </td>
-                                                <td className="py-6 px-12 text-[13px] text-slate-400 font-medium leading-relaxed max-w-sm italic">
-                                                    <div className="flex items-center gap-2 mb-1.5">
-                                                        <div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
-                                                        <span className="font-black text-slate-700 text-[10px] uppercase tracking-tighter">{item.note}</span>
-                                                    </div>
-                                                    실제 내일투어 홈페이지 검색 결과 및 이미지 데이터 기반 1원 단위 동기화 완료.
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                            
+                            <div className="pt-2 lg:pt-6 border-t border-slate-100">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 lg:mb-4">PRODUCT LIST</p>
+                                <div className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible custom-scrollbar min-w-max lg:min-w-0">
+                                    {Object.keys(products).map(pName => (
+                                        <button 
+                                            key={pName}
+                                            onClick={() => setActiveProduct(pName)}
+                                            className={`flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-3 rounded-xl lg:rounded-2xl text-[10px] lg:text-xs font-black transition-all group ${activeProduct === pName ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-500'}`}
+                                        >
+                                            <Icon name="plane" className={`w-3 h-3 lg:w-4 h-4 ${activeProduct === pName ? 'text-blue-400' : 'text-slate-300'}`} /> 
+                                            <span className="no-wrap">{pName}</span>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                    </section>
+                        </aside>
 
-                    {/* Dashboard Summary Info */}
-                    <div className="p-12 bg-slate-900 rounded-[4rem] text-white flex flex-col lg:flex-row items-center justify-between gap-12 border-8 border-slate-800 shadow-3xl">
-                        <div className="space-y-5">
-                           <h4 className="text-4xl font-black italic text-blue-400 leading-none tracking-tighter">ANNUAL PRICING SYNC</h4>
-                           <p className="text-base text-slate-400 leading-relaxed font-light max-w-2xl">
-                             본 대시보드는 <strong>상단(고정 공지가)</strong>과 <strong>하단(실시간 판매가)</strong>의 격차를 실시간으로 분석합니다. <br/>
-                             데이터 수정 후 '서버에 저장' 버튼을 누르면 이 화면을 보고 있는 모든 팀원의 단말기에 0.1초 내로 동일한 수치가 업데이트됩니다.
-                           </p>
-                        </div>
-                        <div className="bg-white/5 border border-white/10 p-10 rounded-[3rem] text-center min-w-[280px] backdrop-blur-xl">
-                            <p className="text-xs font-black text-blue-400 uppercase mb-3 tracking-[0.3em]">System Health</p>
-                            <p className="text-4xl font-black text-green-400 uppercase italic">Active</p>
-                            <div className="mt-6 flex justify-center gap-1.5">
-                                {[...Array(5)].map((_, i) => <div key={i} className="w-6 h-1.5 bg-green-500 rounded-full animate-pulse" style={{animationDelay: `${i*0.2}s`}}></div>)}
+                        {/* Main Body */}
+                        <main className="flex-1 p-4 lg:p-10 space-y-6 lg:space-y-10 w-full overflow-x-hidden">
+                            {/* Hero Card */}
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-8">
+                                <div className="lg:col-span-2 bg-white p-5 lg:p-8 rounded-[2rem] lg:rounded-[3.5rem] border border-slate-200 shadow-sm flex flex-col justify-center relative overflow-hidden">
+                                    <div className="relative z-10">
+                                        <div className="flex gap-2 mb-2 lg:mb-3">
+                                            <span className="bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full text-[8px] lg:text-[10px] font-black uppercase tracking-widest">{activeTeam} > {activeCategory}</span>
+                                            <span className="bg-blue-50 text-blue-600 px-2.5 py-1 rounded-full text-[8px] lg:text-[10px] font-black uppercase tracking-widest italic border border-blue-100">Live Scanned</span>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-4">
+                                            <h2 className="text-2xl lg:text-5xl font-black italic text-slate-900 tracking-tighter uppercase leading-none">{activeProduct}</h2>
+                                            <button 
+                                                onClick={openProductDeepLink}
+                                                className="bg-blue-600 text-white p-2 lg:p-3 rounded-xl lg:rounded-2xl shadow-xl hover:bg-blue-700 active:scale-90"
+                                            >
+                                                <Icon name="external" className="w-4 h-4 lg:w-6 lg:h-6" />
+                                            </button>
+                                        </div>
+                                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 lg:mt-6 text-slate-400 font-bold text-[9px] lg:text-[10px] uppercase tracking-widest italic">
+                                            <div className="flex items-center gap-1.5"><Icon name="building" className="w-3 h-3 lg:w-3.5 h-3.5 text-blue-500" /> {currentProduct.hotel}</div>
+                                            <div className="flex items-center gap-1.5"><Icon name="globe" className="w-3 h-3 lg:w-3.5 h-3.5" /> {currentProduct.location}</div>
+                                        </div>
+                                    </div>
+                                    <div className="absolute right-[-10%] top-[-10%] opacity-[0.03] pointer-events-none">
+                                        <Icon name="plane" className="w-48 h-48 lg:w-64 h-64" />
+                                    </div>
+                                </div>
+
+                                <div className="bg-slate-900 text-white p-5 lg:p-8 rounded-[2rem] lg:rounded-[3.5rem] shadow-2xl flex flex-col justify-center border-2 lg:border-4 border-slate-800">
+                                    <div className="flex items-center gap-2 mb-1 lg:mb-2">
+                                        <Icon name="coins" className="w-4 h-4 text-blue-400" />
+                                        <span className="text-[8px] lg:text-[10px] font-black uppercase tracking-widest text-slate-500">실시간 호주 환율 (AUD)</span>
+                                    </div>
+                                    <p className="text-3xl lg:text-5xl font-black italic tracking-tighter">1 AUD = {exchangeRate}원</p>
+                                    <p className="text-[8px] lg:text-[10px] text-slate-600 mt-2 lg:mt-4 font-bold tracking-tighter uppercase italic">API Source: Naver Finance</p>
+                                </div>
                             </div>
-                        </div>
+
+                            {/* Section 1: Official Prices */}
+                            <section className="space-y-4 lg:space-y-6 overflow-hidden">
+                                <div className="flex items-center gap-2 px-2">
+                                    <div className="p-1.5 lg:p-2 bg-slate-900 rounded-lg text-white"><Icon name="building" className="w-4 h-4 lg:w-5 lg:h-5" /></div>
+                                    <h3 className="text-sm lg:text-xl font-black italic text-slate-800 uppercase tracking-tight underline underline-offset-4 lg:underline-offset-8">Part 1. 홈페이지 공지 요금 (참조용)</h3>
+                                </div>
+                                <div className="bg-white rounded-[1.5rem] lg:rounded-[3rem] shadow-xl border border-slate-200 overflow-hidden">
+                                    <div className="overflow-x-auto custom-scrollbar">
+                                        <table className="w-full border-collapse text-[10px] lg:text-sm min-w-[500px] lg:min-w-0">
+                                            <thead>
+                                                <tr className="bg-slate-50 text-slate-400 font-black uppercase border-b border-slate-100">
+                                                    <th className="py-4 lg:py-6 px-4 lg:px-8 text-left border-r border-slate-100">출발 시즌</th>
+                                                    {currentProduct.carriers.map(carrier => (
+                                                        <th key={carrier} className="py-4 lg:py-6 px-4 lg:px-8 text-center border-r border-slate-100 font-black uppercase italic">{carrier} 공지가</th>
+                                                    ))}
+                                                    {currentProduct.carriers.length < 3 && <th className="py-4 lg:py-6 px-4 lg:px-8 text-center opacity-30 italic">기타</th>}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {months.map((month) => (
+                                                    <tr key={month} className="border-b border-slate-50 hover:bg-slate-50/50 font-bold">
+                                                        <td className="py-3 lg:py-5 px-4 lg:px-8 font-black text-lg lg:text-2xl text-slate-700 border-r border-slate-100 italic">{month}</td>
+                                                        {currentProduct.carriers.map(carrier => (
+                                                            <td key={carrier} className="py-3 lg:py-5 px-4 lg:px-8 text-center border-r border-slate-100 tabular-nums text-indigo-600">
+                                                                {formatKRW(getHomepageProductPrice(month, carrier))}
+                                                            </td>
+                                                        ))}
+                                                        {currentProduct.carriers.length < 3 && <td className="py-3 lg:py-5 px-4 lg:px-8 text-center"><div className="h-6 lg:h-10 bg-slate-50 rounded-lg lg:rounded-2xl border-2 border-dashed border-slate-100"></div></td>}
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </section>
+
+                            {/* Section 2: Market Floor */}
+                            <section className="space-y-4 lg:space-y-6 pb-10 lg:pb-20 overflow-hidden">
+                                <div className="flex items-center gap-2 px-2">
+                                    <div className="p-1.5 lg:p-2 bg-blue-600 rounded-lg text-white animate-pulse-slow"><Icon name="refresh" className="w-4 h-4 lg:w-5 lg:h-5" /></div>
+                                    <h3 className="text-sm lg:text-xl font-black italic text-slate-800 uppercase tracking-tight underline underline-offset-4 lg:underline-offset-8 uppercase">Part 2. 실시간 시장 바닥가 분석</h3>
+                                </div>
+                                <div className="bg-white rounded-[1.5rem] lg:rounded-[3.5rem] shadow-2xl border-2 lg:border-4 border-blue-100 overflow-hidden">
+                                    <div className="bg-blue-600 text-white px-5 lg:px-10 py-3 lg:py-5 flex justify-between items-center">
+                                        <h4 className="font-black text-[9px] lg:text-sm tracking-widest uppercase italic">Real-time Engine Mapping</h4>
+                                        <div className="text-[8px] lg:text-[10px] font-bold bg-green-500 px-2 lg:px-4 py-1 rounded-full uppercase shadow-lg">LIVE</div>
+                                    </div>
+                                    <div className="overflow-x-auto custom-scrollbar">
+                                        <table className="w-full border-collapse text-[10px] lg:text-sm min-w-[700px] lg:min-w-0">
+                                            <thead>
+                                                <tr className="bg-blue-50 text-blue-400 font-black uppercase border-b border-blue-200">
+                                                    <th className="py-4 lg:py-6 px-4 lg:px-10 text-left border-r border-blue-100">분석 월</th>
+                                                    <th className="py-4 lg:py-6 px-4 lg:px-8 text-center border-r border-blue-100">Carrier</th>
+                                                    <th className="py-4 lg:py-6 px-4 lg:px-10 text-center border-r border-blue-100">항공 (RT 최저)</th>
+                                                    <th className="py-4 lg:py-6 px-4 lg:px-10 text-center border-r border-blue-100">호텔 (1인)</th>
+                                                    <th className="py-4 lg:py-6 px-6 lg:px-12 text-center border-r border-blue-100 bg-blue-100/30 text-blue-900 font-black italic">시장 총액</th>
+                                                    <th className="py-4 lg:py-6 px-4 lg:px-10 text-center font-black italic text-blue-600">검증</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {months.map((month) => (
+                                                    <Fragment key={month}>
+                                                        {currentProduct.carriers.map((carrier, cIdx) => (
+                                                            <tr key={carrier} className="border-b border-slate-100 hover:bg-blue-50/20 transition-all font-bold">
+                                                                {cIdx === 0 && (
+                                                                    <td rowSpan={currentProduct.carriers.length} className="py-6 lg:py-12 px-4 lg:px-10 font-black text-2xl lg:text-5xl text-slate-900 border-r border-slate-100 bg-white italic tracking-tighter">
+                                                                        {month}
+                                                                    </td>
+                                                                )}
+                                                                <td className="py-3 lg:py-6 px-4 lg:px-8 text-center border-r border-slate-100 bg-white">
+                                                                    <span className={`px-2.5 lg:px-4 py-1 rounded-full text-[9px] lg:text-[10px] font-black border shadow-sm ${
+                                                                        carrier === 'KE' ? 'bg-sky-50 text-sky-700 border-sky-100' : 'bg-orange-50 text-orange-700 border-orange-100'
+                                                                    }`}>
+                                                                        {carrier}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="py-3 lg:py-6 px-4 lg:px-10 text-right border-r border-slate-100 tabular-nums">
+                                                                    {formatKRW(getMarketPrice(month, carrier, 'air'))}
+                                                                </td>
+                                                                <td className="py-3 lg:py-6 px-4 lg:px-10 text-right border-r border-slate-100 font-bold text-blue-600/70 tabular-nums">
+                                                                    {formatKRW(getMarketPrice(month, carrier, 'hotel'))}
+                                                                </td>
+                                                                <td className="py-3 lg:py-6 px-6 lg:px-12 text-center border-r border-slate-100 bg-blue-50/10 font-black text-xl lg:text-3xl text-blue-900 tabular-nums tracking-tighter">
+                                                                    {formatKRW(getMarketPrice(month, carrier, 'air') + getMarketPrice(month, carrier, 'hotel'))}
+                                                                </td>
+                                                                <td className="py-3 lg:py-6 px-4 lg:px-10 text-center">
+                                                                    <button onClick={() => openNaverFlight(month, carrier)} className="bg-slate-100 hover:bg-blue-600 hover:text-white p-2 rounded-xl active:scale-90 transition-all">
+                                                                        <Icon name="external" className="w-3 h-3 lg:w-4 h-4" />
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                        <tr className="h-1 bg-blue-100/30"></tr>
+                                                    </Fragment>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </section>
+                        </main>
                     </div>
 
-                    {/* Notification Toast */}
-                    {toast.show && (
-                        <div className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[100] toast-enter">
-                            <div className="bg-slate-900/95 text-white px-10 py-5 rounded-full shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)] flex items-center gap-4 border border-white/20 backdrop-blur-xl">
-                                <div className="bg-green-500 p-1.5 rounded-full"><Icon name="check" className="w-4 h-4 text-white" /></div>
-                                <span className="font-bold text-sm tracking-tight">{toast.message}</span>
-                            </div>
+                    {/* Footer */}
+                    <footer className="bg-white border-t border-slate-200 px-6 py-4 flex justify-between items-center text-[7px] lg:text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] sticky bottom-0 z-50 shadow-2xl">
+                        <div className="flex gap-4 lg:gap-8">
+                            <span className="no-wrap">Reporting Unit: {activeTeam}</span>
+                            <span className="no-wrap">Logic: JQ Excel-Mode Applied</span>
                         </div>
-                    )}
+                        <div className="text-blue-600 italic tracking-tighter uppercase font-black no-wrap">
+                            NAEIL TOUR PRICE MATRIX 2026.MOBILE_READY
+                        </div>
+                    </footer>
                 </div>
             );
         };
